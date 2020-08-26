@@ -1,1 +1,1 @@
-# ml-traning-pipeline-with-ci
+# Machine Learning training pipeline with Continuous Integration
