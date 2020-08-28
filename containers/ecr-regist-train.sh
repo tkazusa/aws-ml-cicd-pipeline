@@ -1,6 +1,6 @@
 # ACCOUNT_ID=`aws sts get-caller-identity --query 'Account' --output text`
-ACCOUNT_ID='<your account id>' 
-REGION='<your region>'
+ACCOUNT_ID='815969174475' 
+REGION='us-east-1'
 REGISTRY_URL="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com" 
 ECR_REPOGITORY='sm-tf-nightly-gp'
 IMAGE_TAG=':latest'

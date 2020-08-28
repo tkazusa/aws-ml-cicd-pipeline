@@ -4,8 +4,8 @@ batch:
   BatchJobQueue: 'test'
 
 train:
-  train_url: <your training image url> 
-  data_path: <s3://your/bucket/path>
+  train_url: '815969174475.dkr.ecr.us-east-1.amazonaws.com/sm-tf-nightly-gpu:latest'
+  data_path: 's3://sfn-sagemaker-workflow/train'
   hyper_parameter:
     batch_size: 64
     epoch: 1

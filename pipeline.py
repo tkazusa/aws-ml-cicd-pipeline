@@ -16,8 +16,8 @@ from stepfunctions.workflow import Workflow
 stepfunctions.set_stream_logger(level=logging.INFO)
 id = uuid.uuid4().hex
 
-REGION='<your region>'
-BUCKET='<bucket name>'
+REGION='us-east-1'
+BUCKET='sfn-sagemaker-workflow'
 FLOW_NAME='flow_{}'.format(id) 
 TRAINING_JOB_NAME='sf-train-{}'.format(id) # To avoid duplication of job name
 BATCH_ROLE='<batch role arn>'
