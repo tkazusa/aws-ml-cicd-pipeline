@@ -21,7 +21,7 @@ BUCKET='sfn-sagemaker-workflow'
 FLOW_NAME='flow_{}'.format(id) 
 TRAINING_JOB_NAME='sf-train-{}'.format(id) # To avoid duplication of job name
 BATCH_ROLE='arn:aws:iam::815969174475:role/AWSBatchServiceRole2'
-SAGEMAKER_ROLE = 'arn:aws:iam::815969174475:role/service-role/AmazonSageMaker-ExecutionRole-20200828T130219'
+SAGEMAKER_ROLE = 'arn:aws:iam::815969174475:role/service-role/AmazonSageMaker-ExecutionRole-20190909T195854'
 WORKFLOW_ROLE='arn:aws:iam::815969174475:role/StepFunctionsWorkflowExecutionRole2'
 
 def create_estimator():
