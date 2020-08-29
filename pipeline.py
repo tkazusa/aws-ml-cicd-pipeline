@@ -20,9 +20,9 @@ REGION='us-east-1'
 BUCKET='sfn-sagemaker-workflow'
 FLOW_NAME='flow_{}'.format(id) 
 TRAINING_JOB_NAME='sf-train-{}'.format(id) # To avoid duplication of job name
-BATCH_ROLE='<batch role arn>'
-SAGEMAKER_ROLE = '<sagemaker role arn>'
-WORKFLOW_ROLE='<stepfunctions role arn>'
+BATCH_ROLE='arn:aws:iam::815969174475:role/AWSBatchServiceRole2'
+SAGEMAKER_ROLE = 'arn:aws:iam::815969174475:role/service-role/AmazonSageMaker-ExecutionRole-20200828T130219'
+WORKFLOW_ROLE='arn:aws:iam::815969174475:role/StepFunctionsWorkflowExecutionRole2'
 
 def create_estimator():
     hyperparameters = {'batch_size': args.batch_size,'epochs': args.epoch}
