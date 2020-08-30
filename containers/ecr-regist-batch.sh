@@ -9,7 +9,7 @@ IMAGE_URI="${REGISTRY_URL}/${ECR_REPOGITORY}"
 aws ecr get-login-password | docker login --username AWS --password-stdin $REGISTRY_URL
 aws ecr create-repository --repository-name $ECR_REPOGITORY
 
-docker build -t $ECR_REPOGITORY containers/batch/
+docker build -t $ECR_REPOGITORY batch/
 docker tag "${ECR_REPOGITORY}${IMAGE_TAG}" $IMAGE_URI
 docker push $IMAGE_URI
 
