@@ -2,7 +2,7 @@
 ACCOUNT_ID='815969174475' 
 REGION='us-east-1'
 REGISTRY_URL="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com" 
-ECR_REPOGITORY='sm-tf-nightly-gp'
+ECR_REPOGITORY='sm-tf-nightly-gpu'
 IMAGE_TAG=':latest'
 IMAGE_URI="${REGISTRY_URL}/${ECR_REPOGITORY}"
 
