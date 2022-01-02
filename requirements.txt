@@ -1,3 +1,0 @@
-stepfunctions==1.0.0.6
-sagemaker==1.52.0.post0
-PyYAML==5.3.1
