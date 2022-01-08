@@ -1,0 +1,23 @@
+version: 0.2
+#image: standard:5.0-21.01.08
+env:
+  variables:
+    # SOURCE_VERSION: $(echo $CODEBUILD_RESOLVED_SOURCE_VERSION)
+    SRC: pipeline.py
+
+phases:
+  install:
+    runtime-versions:
+      # docker: 18
+      python: 3.8
+    commands:
+      - pip install -r requirements.txt
+
+  build:
+    commands:
+      # Set Environment Variables from flow.yaml
+      - . ./setenv.sh
+      # Build Docker images and push to ECR
+      - . ./containers/ecr-regist-images.sh
+      # Execute ML workflow
+      - python $SRC
