@@ -1,0 +1,18 @@
+config:
+  region: 'us-east-1'
+  job-name-prefix: 'mlops-demo'
+  image-name-prefix: 'mlops-demo'
+  sfn-workflow-name: 'mlops-demo'
+  sfn-role-arn: 'arn:aws:iam::<Account ID>:role/StepFunctionsWorkflowExecutionRole2'
+  sagemaker-role: 'arn:aws:iam::<Account ID>:role/test-MLOps-train-codebuild-role'
+preprocess:
+  input-data-path: 's3://<S3 Bucket>/data/'
+  output-data-path: 's3://<S3 Bucket>/data/PennFudanPed_Augmented'
+train:
+  output-path: 's3://<S3 Bucket>/train'
+  hyperparameters:
+    batch-size: 4
+    epoch: 1
+evaluate:
+  data-path: 's3://<S3 Bucket>/data'
+  result-path: 's3://<S3 Bucket>/evaluate'
