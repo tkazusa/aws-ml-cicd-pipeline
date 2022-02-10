@@ -2,23 +2,23 @@
 
 import argparse
 import json
-import os
-import tarfile
-
+import mlflow
+from mlflow.tracking import MlflowClient
 import numpy as np
+import os
+from PIL import Image
+import tarfile
 import torch
 import torchvision
-import transforms as T
-import utils
-from PIL import Image
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
+import transforms as T
+from engine import train_one_epoch, evaluate
+import utils
 
-from engine import evaluate, train_one_epoch
 
-print("torch", torch.__version__)
-print("torchvision", torchvision.__version__)
-
+print('torch', torch.__version__)
+print('torchvision', torchvision.__version__)
 
 class PennFudanDataset(torch.utils.data.Dataset):
     def __init__(self, root, transforms):
@@ -82,12 +82,12 @@ class PennFudanDataset(torch.utils.data.Dataset):
         if self.transforms is not None:
             img, target = self.transforms(img, target)
 
-        target["filename"] = self.masks[idx].split("_")[0]
+        target["filename"] = self.masks[idx].split('_')[0]
         return img, target
 
     def __len__(self):
         return len(self.imgs)
-
+    
 
 def get_model_instance_segmentation(num_classes):
     # load an instance segmentation model pre-trained on COCO
@@ -102,9 +102,12 @@ def get_model_instance_segmentation(num_classes):
     in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
     hidden_layer = 256
     # and replace the mask predictor with a new one
-    model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
+    model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask,
+                                                       hidden_layer,
+                                                       num_classes)
 
     return model
+
 
 
 def get_transform(train):
@@ -117,7 +120,7 @@ def get_transform(train):
 
 def evaluate_model(args):
     # evaluate on the GPU or on the CPU, if a GPU is not available
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     # our dataset has two classes only - background and person
     num_classes = 2
@@ -130,56 +133,84 @@ def evaluate_model(args):
 
     # define evaluation data loaders
     data_loader_test = torch.utils.data.DataLoader(
-        dataset_test, batch_size=args.test_batch_size, shuffle=False, num_workers=0, collate_fn=utils.collate_fn
-    )
+        dataset_test, batch_size=args.test_batch_size, shuffle=False, num_workers=0,
+        collate_fn=utils.collate_fn)
 
     # get the model using our helper function
     model = get_model_instance_segmentation(num_classes)
 
     # move model to the right device
     model.to(device)
-
+    
+    
     model_path = os.path.join(args.model_dir, "model.tar.gz")
-
+    
     print("Extracting model from path: {}".format(model_path))
     with tarfile.open(model_path) as tar:
         tar.extractall(path=args.model_dir)
-
-    with open(os.path.join(args.model_dir, "model.pth"), "rb") as f:
+        
+    with open(os.path.join(args.model_dir, 'model.pth'), 'rb') as f:
         model.load_state_dict(torch.load(f))
-
+        
     model.to(device)
     model.eval()
-
+    
     coco_evaluator = evaluate(model, data_loader_test, device=device, output_dir=args.output_dir)
     print(coco_evaluator.coco_eval)
-    print("Average Precision", coco_evaluator.coco_eval["bbox"].stats[0])
-
-    report_dict = {"average_precision": coco_evaluator.coco_eval["bbox"].stats[0]}
-
-    evaluation_output_path = os.path.join(args.output_dir, "evaluation.json")
-    print("Saving classification report to {}".format(evaluation_output_path))
-
-    with open(evaluation_output_path, "w") as f:
-        f.write(json.dumps(report_dict))
-
+    print('Average Precision', coco_evaluator.coco_eval['bbox'].stats[0])
+    
+    report_dict = {"average_precision": coco_evaluator.coco_eval['bbox'].stats[0]}
+    
+    return report_dict
 
 def save_model(model, model_dir):
     print("Saving the model.")
-    path = os.path.join(model_dir, "model.pth")
+    path = os.path.join(model_dir, 'model.pth')
     # recommended way from http://pytorch.org/docs/master/notes/serialization.html
     torch.save(model.cpu().state_dict(), path)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Data and model checkpoints directories
-    parser.add_argument(
-        "--test-batch-size", type=int, default=4, metavar="N", help="input batch size for testing (default: 4)"
-    )
-    parser.add_argument("--model-dir", type=str, default="", metavar="N", help="model file path")
-    parser.add_argument("--data-dir", type=str, default="", metavar="N", help="data file path")
-    parser.add_argument("--output-dir", type=str, default="", metavar="N", help="output file path")
+    parser.add_argument('--test-batch-size', type=int, default=4, metavar='N',
+                    help='input batch size for testing (default: 4)')
+    parser.add_argument('--model-dir', type=str, default='', metavar='N',
+                        help='model file path')
+    parser.add_argument('--data-dir', type=str, default='', metavar='N',
+                    help='data file path')
+    parser.add_argument('--output-dir', type=str, default='', metavar='N',
+                    help='output file path')
+    parser.add_argument('--mlflow-server', type=str, default='', metavar='N',
+                    help='MLFlow seer')
+    parser.add_argument('--experiment-name', type=str, default='', metavar='N',
+                    help='MLFlow experiment name')
 
-    evaluate_model(parser.parse_args())
+    args = parser.parse_args()
+    
+    experiment_name = args.experiment_name
+    mlflow.set_tracking_uri(args.mlflow_server)
+    mlflow.set_experiment(experiment_name)
+    
+    experiment_id = mlflow.get_experiment_by_name(experiment_name).experiment_id
+    
+    report = evaluate_model(args)
+    
+    # get run_id
+    with open(os.path.join(args.model_dir, 'metadata.json'), 'r') as f:
+        json_load = json.load(f)
+        
+    run_id = json_load['run_id']
+    report["experiment_name"] = experiment_name
+    report["experiment_id"] = experiment_id
+    report["run_id"] = run_id
+    
+    client = MlflowClient()
+    client.log_metric(run_id, 'average_precision', report['average_precision'])
+    # client.log_artifact(run_id, args.output_dir)
+    
+    evaluation_output_path = os.path.join(args.output_dir, "evaluation.json")
+    print("Saving classification report to {}".format(evaluation_output_path))
+
+    with open(evaluation_output_path, "w") as f:
+        f.write(json.dumps(report))

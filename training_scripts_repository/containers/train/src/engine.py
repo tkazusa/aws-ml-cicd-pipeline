@@ -1,27 +1,24 @@
 import math
-import os
 import sys
 import time
-
-import numpy as np
 import torch
-import torchvision.models.detection.mask_rcnn
-import utils
-from PIL import Image, ImageDraw
 
-from coco_eval import CocoEvaluator
+import torchvision.models.detection.mask_rcnn
+
 from coco_utils import get_coco_api_from_dataset
+from coco_eval import CocoEvaluator
+import utils
 
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
-    metric_logger.add_meter("lr", utils.SmoothedValue(window_size=1, fmt="{value:.6f}"))
-    header = "Epoch: [{}]".format(epoch)
+    metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    header = 'Epoch: [{}]'.format(epoch)
 
     lr_scheduler = None
     if epoch == 0:
-        warmup_factor = 1.0 / 1000
+        warmup_factor = 1. / 1000
         warmup_iters = min(1000, len(data_loader) - 1)
 
         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
@@ -70,38 +67,15 @@ def _get_iou_types(model):
     return iou_types
 
 
-def dump_images(images, outputs, targets, output_dir):
-
-    for image, target, output in zip(images, targets, outputs):
-        fname_prefix = target["filename"].split(".")[0]
-        print(fname_prefix)
-
-        im = Image.fromarray(image.cpu().mul(255).permute(1, 2, 0).byte().numpy())
-        w = max(int(np.shape(im)[0] * 0.007), 2)
-
-        draw = ImageDraw.Draw(im)
-        for b in output["boxes"]:
-            draw.rectangle(b.cpu().numpy(), outline=(0, 255, 0), width=w)
-
-        bbimage_name = os.path.join(output_dir, fname_prefix + "_bbox.png")
-        im.save(bbimage_name)
-
-        for i, m in enumerate(output["masks"]):
-            im = Image.fromarray(m.cpu()[0].mul(127).byte().numpy(), "L")
-            draw = ImageDraw.Draw(im)
-            maskimage_name = os.path.join(output_dir, fname_prefix + "_" + str(i) + "_mask.png")
-            im.save(maskimage_name)
-
-
 @torch.no_grad()
-def evaluate(model, data_loader, device, output_dir):
+def evaluate(model, data_loader, device):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
     cpu_device = torch.device("cpu")
     model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ")
-    header = "Test:"
+    header = 'Test:'
 
     coco = get_coco_api_from_dataset(data_loader.dataset)
     iou_types = _get_iou_types(model)
@@ -113,9 +87,6 @@ def evaluate(model, data_loader, device, output_dir):
         torch.cuda.synchronize()
         model_time = time.time()
         outputs = model(images)
-
-        #         print(np.shape(outputs))
-        dump_images(images, outputs, targets, output_dir)
 
         outputs = [{k: v.to(cpu_device) for k, v in t.items()} for t in outputs]
         model_time = time.time() - model_time

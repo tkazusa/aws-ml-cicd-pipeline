@@ -1,0 +1,11 @@
+FROM python:3.8.10-slim-buster
+
+WORKDIR /app
+COPY . /app
+
+RUN apt update && \
+apt install --no-install-recommends -y build-essential gcc curl ca-certificates python3 && \
+apt clean && rm -rf /var/lib/apt/lists/*
+RUN pip uninstall torch torchvision -y && pip install --no-cache-dir -U -r requirements.txt
+
+CMD ["python","./main.py"]

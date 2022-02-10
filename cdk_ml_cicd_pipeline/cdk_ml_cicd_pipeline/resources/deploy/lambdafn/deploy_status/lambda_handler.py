@@ -1,21 +1,18 @@
 import json
-import os
-from datetime import datetime as dt
-
 import boto3
+from datetime import datetime as dt
+import os
 
-ggv2 = boto3.client("greengrassv2")
-iot = boto3.client("iot")
+ggv2 = boto3.client('greengrassv2')
+iot = boto3.client('iot')
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(os.getenv("TABLE_NAME"))
 
-
 class DeployFaild(Exception):
-    """デプロイに失敗"""
-
+    """デプロイに失敗
+    """
     def __init__(self, message):
         self.message = message
-
 
 def check_deploy_job_status(job_id, thing_list):
     """コンポーネントをデプロイ状況を確認する
@@ -33,12 +30,15 @@ def check_deploy_job_status(job_id, thing_list):
     """
 
     ### greengrass deployment
-    gg_deploy = ggv2.get_deployment(deploymentId=job_id)
+    gg_deploy = ggv2.get_deployment(deploymentId = job_id)
 
     deploy_failed = False
-
+    
     for thing in thing_list:
-        response = iot.describe_job_execution(jobId=gg_deploy["iotJobId"], thingName=thing)
+        response = iot.describe_job_execution(
+            jobId=gg_deploy["iotJobId"],
+            thingName=thing
+        )
         print(response)
         if response["execution"]["status"] in ["QUEUED", "IN_PROGRESS"]:
             print("{} is deploying. status: {}".format(thing, response["execution"]["status"]))
@@ -47,7 +47,6 @@ def check_deploy_job_status(job_id, thing_list):
             raise DeployFaild(thing + " faild to deploy. reson: " + json.dumps(response["execution"]["statusDetails"]))
 
     return True
-
 
 def get_thing_list(group_name):
     """Thing Groupに含まれているThingを取得する
@@ -62,10 +61,11 @@ def get_thing_list(group_name):
         list: Thing nameのリスト
     """
 
-    response = iot.list_things_in_thing_group(thingGroupName=group_name)
-
+    response = iot.list_things_in_thing_group(
+        thingGroupName=group_name
+    )
+    
     return response["things"]
-
 
 def handler(event, context):
     """デプロイ結果を確認する
@@ -88,14 +88,14 @@ def handler(event, context):
     print(json.dumps(event))
 
     ### get deploy group arn
-    deploy_tg = iot.describe_thing_group(thingGroupName=event["group_name"])
-
+    deploy_tg = iot.describe_thing_group(thingGroupName = event['group_name'])
+    
     ### get thing list
-    things = get_thing_list(event["group_name"])
-
+    things = get_thing_list(event['group_name'])
+    
     ### deployment status
     try:
-        if check_deploy_job_status(event["deploy_id"], things):
+        if check_deploy_job_status(event['deploy_id'], things):
             event["status"] = "COMPLETED"
             event["message"] = "Deployment is finished."
         else:
@@ -108,15 +108,18 @@ def handler(event, context):
     print(event["status"])
 
     response = table.update_item(
-        Key={"component_name": event["component_name"], "version": event["version"]},
+        Key={
+            "component_name": event["component_name"],
+            "version": event["version"]
+        },
         UpdateExpression="set deployment_status = :s, deploy_group = :g, update_time = :t",
         ExpressionAttributeValues={
             ":s": event["status"],
-            ":g": deploy_tg["thingGroupArn"],
-            ":t": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ":g": deploy_tg['thingGroupArn'],
+            ":t": dt.now().strftime('%Y-%m-%d %H:%M:%S')
         },
-        ReturnValues="UPDATED_NEW",
+        ReturnValues="UPDATED_NEW"
     )
-
+   
     print(event)
     return event

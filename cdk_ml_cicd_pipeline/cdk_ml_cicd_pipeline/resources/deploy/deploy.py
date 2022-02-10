@@ -1,16 +1,23 @@
-import os
 import pathlib
-
 import yaml
-from aws_cdk import aws_codebuild, aws_codecommit, aws_ecr, aws_iam, aws_lambda, aws_sns
-from aws_cdk import aws_stepfunctions as aws_sf
-from aws_cdk import aws_stepfunctions_tasks as aws_sf_tasks
-from aws_cdk import core
-from aws_cdk.aws_dynamodb import Attribute, AttributeType, Table
-from aws_cdk.core import Aws, Duration, RemovalPolicy
+import os
 
+from aws_cdk import (
+    aws_lambda,
+    core,
+    aws_iam,
+    aws_codecommit,
+    aws_codebuild,
+    aws_ecr,
+    aws_stepfunctions_tasks as aws_sf_tasks,
+    aws_stepfunctions as aws_sf,
+    aws_sns
+    )
+from aws_cdk.aws_dynamodb import Attribute, AttributeType, Table
+from aws_cdk.core import Aws, RemovalPolicy, Duration
 
 class Deploy(core.Construct):
+
     def __init__(self, scope: core.Construct, stack_name: str, component_id: str, **kwargs):
         super().__init__(scope=scope, id=component_id, **kwargs)
 
@@ -21,19 +28,15 @@ class Deploy(core.Construct):
 
         self.create_deploy_pipeline()
 
-        core.CfnOutput(
-            self,
+        core.CfnOutput(self, 
             id="ComponentCodeRepositoryURI",
             export_name="ComponentCodeRepositoryURI",
-            value=self._component_source_repository.repository_clone_url_grc,
-        )
+            value=self._component_source_repository.repository_clone_url_grc)
 
-        core.CfnOutput(
-            self,
+        core.CfnOutput(self, 
             id="ComponentBaseImageRepositoryURI",
             export_name="ComponentBaseImageRepositoryURI",
-            value=self._component_base_ecr.repository_uri,
-        )
+            value=self._component_base_ecr.repository_uri)
 
     def get_role_name(self, name: str):
         return f"{self.stack_name}_{self.component_id}_{name}_role"
@@ -62,9 +65,9 @@ class Deploy(core.Construct):
                 * image_exists: コンテナイメージが存在する
                 * component_exists: GGのコンポーネントが存在する
                 * component_faild: 何らかの理由でコンポーネントの登録に失敗した
-                * create_deployment:
+                * create_deployment: 
             * update_time
-            * deployment_status
+            * deployment_status 
                 * IN_PROGRESS
                 * ACTIVE
                 * CANCELLED
@@ -83,7 +86,7 @@ class Deploy(core.Construct):
             sort_key=Attribute(name="version", type=AttributeType.STRING),  # ソートキー
             removal_policy=RemovalPolicy.DESTROY,  # Stackの削除と一緒にテーブルを削除する(オプション)
         )
-
+        
         return table
 
     def create_component_source_repository(self) -> core.Resource:
@@ -93,7 +96,11 @@ class Deploy(core.Construct):
             core.Resource: CodeCommit
         """
         name = f"{self.stack_name}_{self.component_id}_component-source".lower()
-        repo = aws_codecommit.Repository(self, id=name, repository_name=name)
+        repo = aws_codecommit.Repository(
+            self,
+            id=name,
+            repository_name=name
+        )
         return repo
 
     def create_ecr_component_base_repository(self) -> core.Resource:
@@ -106,7 +113,7 @@ class Deploy(core.Construct):
             self,
             id=f"{self.stack_name}_{self.component_id}_component_base".lower(),
             repository_name="base." + self.greengrass_component_name,
-            removal_policy=RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY
         )
         return ecr
 
@@ -120,7 +127,7 @@ class Deploy(core.Construct):
             self,
             id=f"{self.stack_name}_{self.component_id}_component".lower(),
             repository_name=self.greengrass_component_name,
-            removal_policy=RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY
         )
         return ecr
 
@@ -136,22 +143,24 @@ class Deploy(core.Construct):
         codebuild_role = aws_iam.Role(
             self,
             id=role_name,
-            assumed_by=aws_iam.ServicePrincipal("codebuild.amazonaws.com"),
+            assumed_by =aws_iam.ServicePrincipal("codebuild.amazonaws.com"),
             role_name=role_name,
-            path="/service-role/",
+            path="/service-role/"
         )
         codebuild_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "DefaultCodeBuildPermissions",
+            aws_iam.Policy(self, "DefaultCodeBuildPermissions",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
-                            actions=["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
+                            actions=[
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents"
+                            ],
                             resources=[
                                 f"arn:aws:logs:{Aws.REGION}:{Aws.ACCOUNT_ID}:log-group:/aws/codebuild/{codebuild_name}",
-                                f"arn:aws:logs:{Aws.REGION}:{Aws.ACCOUNT_ID}:log-group:/aws/codebuild/{codebuild_name}:*",
-                            ],
+                                f"arn:aws:logs:{Aws.REGION}:{Aws.ACCOUNT_ID}:log-group:/aws/codebuild/{codebuild_name}:*"
+                            ]
                         ),
                         aws_iam.PolicyStatement(
                             actions=[
@@ -159,11 +168,11 @@ class Deploy(core.Construct):
                                 "codebuild:CreateReport",
                                 "codebuild:UpdateReport",
                                 "codebuild:BatchPutTestCases",
-                                "codebuild:BatchPutCodeCoverages",
+                                "codebuild:BatchPutCodeCoverages"
                             ],
                             resources=[
                                 f"arn:aws:codebuild:{Aws.REGION}:{Aws.ACCOUNT_ID}:report-group/{codebuild_name}-*"
-                            ],
+                            ]
                         ),
                         aws_iam.PolicyStatement(
                             actions=[
@@ -171,11 +180,15 @@ class Deploy(core.Construct):
                                 "s3:GetObject",
                                 "s3:GetObjectVersion",
                                 "s3:GetBucketAcl",
-                                "s3:GetBucketLocation",
-                            ],
-                            resources=["arn:aws:s3:::{}/*".format("ml-model-build-input-us-east-1")],
+                                "s3:GetBucketLocation"                            ],
+                            resources=[
+                                "arn:aws:s3:::{}/*".format("ml-model-build-input-us-east-1")
+                            ]
                         ),
-                        aws_iam.PolicyStatement(actions=["ecr:GetAuthorizationToken"], resources=["*"]),
+                        aws_iam.PolicyStatement(
+                            actions=["ecr:GetAuthorizationToken"],
+                            resources=["*"]
+                        ),
                         aws_iam.PolicyStatement(
                             actions=[
                                 "ecr:BatchCheckLayerAvailability",
@@ -188,34 +201,40 @@ class Deploy(core.Construct):
                                 "ecr:InitiateLayerUpload",
                                 "ecr:UploadLayerPart",
                                 "ecr:CompleteLayerUpload",
-                                "ecr:PutImage",
+                                "ecr:PutImage"
                             ],
-                            resources=[self._component_ecr.repository_arn, self._component_base_ecr.repository_arn],
+                            resources=[
+                                self._component_ecr.repository_arn,
+                                self._component_base_ecr.repository_arn
+                                ]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["codecommit:GitPull"],
-                            resources=[self._component_source_repository.repository_arn],
-                        ),
+                            actions=[
+                                "codecommit:GitPull"
+                            ],
+                            resources=[self._component_source_repository.repository_arn]
+                        )
                     ]
-                ),
+                )
             )
         )
 
         buildspecfile = os.path.dirname(__file__) + "/buildspec/componentimage.yaml"
         with open(buildspecfile, "r") as yml:
             buildspec = yaml.safe_load(yml)
-
+    
         code_build = aws_codebuild.Project(
             self,
             id=codebuild_name,
             project_name=codebuild_name,
             build_spec=aws_codebuild.BuildSpec.from_object(buildspec),
             environment=aws_codebuild.BuildEnvironment(
-                privileged=True, build_image=aws_codebuild.LinuxBuildImage.STANDARD_4_0
+                privileged=True,
+                build_image=aws_codebuild.LinuxBuildImage.STANDARD_4_0
             ),
-            description="Greengrass用の推論アプリコンポーネントイメージを作成",
+            description='Greengrass用の推論アプリコンポーネントイメージを作成',
             timeout=Duration.minutes(60),
-            role=codebuild_role,
+            role=codebuild_role
         )
 
         return code_build
@@ -233,26 +252,28 @@ class Deploy(core.Construct):
         lambda_role = aws_iam.Role(
             self,
             id=role_name,
-            assumed_by=aws_iam.ServicePrincipal("lambda.amazonaws.com"),
+            assumed_by =aws_iam.ServicePrincipal("lambda.amazonaws.com"),
             role_name=role_name,
             path="/service-role/",
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
-                aws_iam.ManagedPolicy.from_aws_managed_policy_name("AWSCodeBuildDeveloperAccess"),
-            ],
+                aws_iam.ManagedPolicy.from_aws_managed_policy_name("AWSCodeBuildDeveloperAccess")
+            ]
         )
         lambda_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowDynamoDBAccess",
+            aws_iam.Policy(self, "AllowDynamoDBAccess",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
-                            actions=["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
-                            resources=[self._table.table_arn],
+                            actions=[
+                                "dynamodb:PutItem",
+                                "dynamodb:GetItem",
+                                "dynamodb:UpdateItem"
+                            ],
+                            resources=[self._table.table_arn]
                         )
                     ]
-                ),
+                )
             )
         )
         lambdaFn_path = self.get_lambda_path("build_image")
@@ -272,13 +293,13 @@ class Deploy(core.Construct):
                 "CODEBUILD_PROJECT_NAME": self._docker_image_buildproject.project_name,
                 "COMPONENT_IMAGE_REPOSITORY": self._component_ecr.repository_name,
                 "COMPONENT_APP_SOURCE_REPOSITORY": self._component_source_repository.repository_clone_url_grc,
-                "COMPONENT_BASE_IMAGE_REPOSITORY": self._component_base_ecr.repository_uri,
-            },
+                "COMPONENT_BASE_IMAGE_REPOSITORY": self._component_base_ecr.repository_uri
+            }
         )
         self._table.grant_read_write_data(lambdaFn)
 
-        return lambdaFn
-
+        return lambdaFn 
+    
     def create_lambda_check_image_status(self) -> core.Resource:
         """dockerイメージのビルド状況を確認するLambda
 
@@ -292,29 +313,31 @@ class Deploy(core.Construct):
         lambda_role = aws_iam.Role(
             self,
             id=role_name,
-            assumed_by=aws_iam.ServicePrincipal("lambda.amazonaws.com"),
+            assumed_by =aws_iam.ServicePrincipal("lambda.amazonaws.com"),
             role_name=role_name,
             path="/service-role/",
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
-            ],
+            ]
         )
         lambda_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowCodeBuildStatus",
+            aws_iam.Policy(self, "AllowCodeBuildStatus",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=["codebuild:BatchGetBuilds"],
-                            resources=[self._docker_image_buildproject.project_arn],
+                            resources=[self._docker_image_buildproject.project_arn]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
-                            resources=[self._table.table_arn],
-                        ),
+                            actions=[
+                                "dynamodb:PutItem",
+                                "dynamodb:GetItem",
+                                "dynamodb:UpdateItem"
+                            ],
+                            resources=[self._table.table_arn]
+                        )
                     ]
-                ),
+                )
             )
         )
 
@@ -329,11 +352,13 @@ class Deploy(core.Construct):
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="コンポーネント用のイメージのビルド結果を確認",
             role=lambda_role,
-            environment={"TABLE_NAME": self._table.table_name},
+            environment={
+                "TABLE_NAME": self._table.table_name
+            }
         )
 
         return lambdaFn
-
+    
     def create_lambda_create_component(self) -> core.Resource:
         """AWS IoT Greengrass用のコンポーネントを作成するLambda
 
@@ -347,33 +372,35 @@ class Deploy(core.Construct):
         lambda_role = aws_iam.Role(
             self,
             id=role_name,
-            assumed_by=aws_iam.ServicePrincipal("lambda.amazonaws.com"),
+            assumed_by =aws_iam.ServicePrincipal("lambda.amazonaws.com"),
             role_name=role_name,
             path="/service-role/",
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
-            ],
+            ]
         )
         lambda_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowComponentCreate",
+            aws_iam.Policy(self, "AllowComponentCreate",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=["greengrass:CreateComponentVersion"],
-                            resources=[f"arn:aws:greengrass:{Aws.REGION}:{Aws.ACCOUNT_ID}:components:*"],
+                            resources=[f"arn:aws:greengrass:{Aws.REGION}:{Aws.ACCOUNT_ID}:components:*"]
                         ),
                         aws_iam.PolicyStatement(
                             actions=["codecommit:GetFile"],
-                            resources=[self._component_source_repository.repository_arn],
+                            resources=[self._component_source_repository.repository_arn]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
-                            resources=[self._table.table_arn],
-                        ),
+                            actions=[
+                                "dynamodb:PutItem",
+                                "dynamodb:GetItem",
+                                "dynamodb:UpdateItem"
+                            ],
+                            resources=[self._table.table_arn]
+                        )
                     ]
-                ),
+                )
             )
         )
 
@@ -391,11 +418,11 @@ class Deploy(core.Construct):
             environment={
                 "TABLE_NAME": self._table.table_name,
                 "COMPONENT_APP_SOURCE_REPOSITORY": self._component_source_repository.repository_clone_url_grc,
-            },
+            }
         )
 
         return lambdaFn
-
+    
     def create_lambda_deploy_component(self) -> core.Resource:
         """AWS IoT Greengrass用のコンポーネントをデプロイするLambda
 
@@ -409,47 +436,63 @@ class Deploy(core.Construct):
         lambda_role = aws_iam.Role(
             self,
             id=role_name,
-            assumed_by=aws_iam.ServicePrincipal("lambda.amazonaws.com"),
+            assumed_by =aws_iam.ServicePrincipal("lambda.amazonaws.com"),
             role_name=role_name,
             path="/service-role/",
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
-            ],
+            ]
         )
         lambda_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowComponentDeploy",
+            aws_iam.Policy(self, "AllowComponentDeploy",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
-                            actions=["iot:DescribeThingGroup"],
-                            resources=[f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:thinggroup/*"],
+                            actions=[
+                                "iot:DescribeThingGroup"
+                            ],
+                            resources=[
+                                f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:thinggroup/*"
+                            ]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["iot:CreateJob"],
+                            actions=[
+                                "iot:CreateJob"
+                            ],
                             resources=[
                                 f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:thinggroup/*",
-                                f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/*",
+                                f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/*"
+                            ]
+                        ),
+                        aws_iam.PolicyStatement(
+                            actions=[
+                                "iot:DescribeJob",
+                                "iot:CancelJob"
                             ],
+                            resources=[
+                                f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/*"
+                            ]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["iot:DescribeJob", "iot:CancelJob"],
-                            resources=[f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/*"],
-                        ),
-                        aws_iam.PolicyStatement(
-                            actions=["greengrass:CreateDeployment", "greengrass:GetDeployment"],
+                            actions=[
+                                "greengrass:CreateDeployment",
+                                "greengrass:GetDeployment"
+                            ],
                             resources=[
                                 f"arn:aws:greengrass:{Aws.REGION}:{Aws.ACCOUNT_ID}:deployments",
-                                f"arn:aws:greengrass:{Aws.REGION}:{Aws.ACCOUNT_ID}:deployments:*",
-                            ],
+                                f"arn:aws:greengrass:{Aws.REGION}:{Aws.ACCOUNT_ID}:deployments:*"
+                            ]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
-                            resources=[self._table.table_arn],
-                        ),
+                            actions=[
+                                "dynamodb:PutItem",
+                                "dynamodb:GetItem",
+                                "dynamodb:UpdateItem"
+                            ],
+                            resources=[self._table.table_arn]
+                        )
                     ]
-                ),
+                )
             )
         )
 
@@ -465,11 +508,13 @@ class Deploy(core.Construct):
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="AWS IoT Greengrassへのデプロイ結果を取得",
             role=lambda_role,
-            environment={"TABLE_NAME": self._table.table_name},
+            environment={
+                "TABLE_NAME": self._table.table_name
+            }
         )
 
         return lambdaFn
-
+    
     def create_lambda_check_deploy_status(self) -> core.Resource:
         """AWS IoT Greengrass用のコンポーネントをデプロイするLambda
 
@@ -483,38 +528,54 @@ class Deploy(core.Construct):
         lambda_role = aws_iam.Role(
             self,
             id=role_name,
-            assumed_by=aws_iam.ServicePrincipal("lambda.amazonaws.com"),
+            assumed_by =aws_iam.ServicePrincipal("lambda.amazonaws.com"),
             role_name=role_name,
             path="/service-role/",
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
-            ],
+            ]
         )
         lambda_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowComponentDeployCheck",
+            aws_iam.Policy(self, "AllowComponentDeployCheck",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
                             actions=["greengrass:GetDeployment"],
-                            resources=[f"arn:aws:greengrass:{Aws.REGION}:{Aws.ACCOUNT_ID}:deployments:*"],
+                            resources=[f"arn:aws:greengrass:{Aws.REGION}:{Aws.ACCOUNT_ID}:deployments:*"]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["iot:DescribeThingGroup"],
-                            resources=[f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:thinggroup/*"],
+                            actions=[
+                                "iot:DescribeThingGroup"
+                            ],
+                            resources=[
+                                f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:thinggroup/*"
+                            ]
                         ),
-                        aws_iam.PolicyStatement(actions=["iot:ListThingsInThingGroup"], resources=["*"]),
                         aws_iam.PolicyStatement(
-                            actions=["iot:DescribeJob", "iot:DescribeJobExecution"],
-                            resources=[f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/*"],
+                            actions=[
+                                "iot:ListThingsInThingGroup"
+                            ],
+                            resources=["*"]
                         ),
                         aws_iam.PolicyStatement(
-                            actions=["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
-                            resources=[self._table.table_arn],
+                            actions=[
+                                "iot:DescribeJob",
+                                "iot:DescribeJobExecution"
+                            ],
+                            resources=[
+                                f"arn:aws:iot:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/*"
+                            ]
                         ),
+                        aws_iam.PolicyStatement(
+                            actions=[
+                                "dynamodb:PutItem",
+                                "dynamodb:GetItem",
+                                "dynamodb:UpdateItem"
+                            ],
+                            resources=[self._table.table_arn]
+                        )
                     ]
-                ),
+                )
             )
         )
 
@@ -530,7 +591,9 @@ class Deploy(core.Construct):
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="AWS IoT Greengrassへのデプロイ結果を取得",
             role=lambda_role,
-            environment={"TABLE_NAME": self._table.table_name},
+            environment={
+                "TABLE_NAME": self._table.table_name
+            }
         )
 
         return lambdaFn
@@ -548,17 +611,15 @@ class Deploy(core.Construct):
         sf_role = aws_iam.Role(
             self,
             id=role_name,
-            assumed_by=aws_iam.ServicePrincipal("states.amazonaws.com"),
+            assumed_by =aws_iam.ServicePrincipal("states.amazonaws.com"),
             role_name=role_name,
             path="/service-role/",
             managed_policies=[
                 aws_iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole")
-            ],
+            ]
         )
         sf_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowCloudWatchLogsForSF",
+            aws_iam.Policy(self, "AllowCloudWatchLogsForSF",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
@@ -570,18 +631,16 @@ class Deploy(core.Construct):
                                 "logs:ListLogDeliveries",
                                 "logs:PutResourcePolicy",
                                 "logs:DescribeResourcePolicies",
-                                "logs:DescribeLogGroups",
+                                "logs:DescribeLogGroups"
                             ],
-                            resources=["*"],
+                            resources=["*"]
                         )
                     ]
-                ),
+                )
             )
         )
         sf_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowXRayForSF",
+            aws_iam.Policy(self, "AllowXRayForSF",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
@@ -589,18 +648,16 @@ class Deploy(core.Construct):
                                 "xray:PutTraceSegments",
                                 "xray:PutTelemetryRecords",
                                 "xray:GetSamplingRules",
-                                "xray:GetSamplingTargets",
+                                "xray:GetSamplingTargets"
                             ],
-                            resources=["*"],
+                            resources=["*"]
                         )
                     ]
-                ),
+                )
             )
         )
         sf_role.attach_inline_policy(
-            aws_iam.Policy(
-                self,
-                "AllowInvokeLambda",
+            aws_iam.Policy(self, "AllowInvokeLambda",
                 document=aws_iam.PolicyDocument(
                     statements=[
                         aws_iam.PolicyStatement(
@@ -615,54 +672,64 @@ class Deploy(core.Construct):
                                 self._lambda_deploy_component.function_arn,
                                 self._lambda_deploy_component.function_arn + ":*",
                                 self._lambda_check_deploy_status.function_arn,
-                                self._lambda_check_deploy_status.function_arn + ":*",
-                            ],
+                                self._lambda_check_deploy_status.function_arn + ":*"
+                            ]
                         )
                     ]
-                ),
+                )
             )
         )
 
         # dockerコンテナをビルド
-        task_build_image = aws_sf_tasks.LambdaInvoke(
-            self, "BuildInferenceImage", lambda_function=self._lambda_build_image, output_path="$.Payload"
+        task_build_image = aws_sf_tasks.LambdaInvoke(self,
+            "BuildInferenceImage",
+            lambda_function=self._lambda_build_image,
+            output_path="$.Payload"
         )
         # dockerコンテナのビルド結果を確認
-        task_check_build_image_status = aws_sf_tasks.LambdaInvoke(
-            self,
+        task_check_build_image_status = aws_sf_tasks.LambdaInvoke(self,
             "CheckDockerImageBuildStatus",
             lambda_function=self._lambda_check_image_status,
-            output_path="$.Payload",
+            output_path="$.Payload"
         )
 
         # dockerコンテナのビルドを待つ
-        wait_image_build = aws_sf.Wait(
-            self, "WaitImageBuildFinish", time=aws_sf.WaitTime.duration(core.Duration.seconds(30))
+        wait_image_build = aws_sf.Wait(self, 
+            "WaitImageBuildFinish",
+            time=aws_sf.WaitTime.duration(core.Duration.seconds(30))
         )
 
         # Greengrassのコンポーネントを作成
-        task_create_greengrass_component = aws_sf_tasks.LambdaInvoke(
-            self, "CreateComponent", lambda_function=self._lambda_create_component, output_path="$.Payload"
+        task_create_greengrass_component = aws_sf_tasks.LambdaInvoke(self,
+            "CreateComponent",
+            lambda_function=self._lambda_create_component,
+            output_path="$.Payload"
         )
 
         # Greengrassへデプロイ
-        task_deploy_component = aws_sf_tasks.LambdaInvoke(
-            self, "DeployComponent", lambda_function=self._lambda_deploy_component, output_path="$.Payload"
+        task_deploy_component = aws_sf_tasks.LambdaInvoke(self,
+            "DeployComponent",
+            lambda_function=self._lambda_deploy_component,
+            output_path="$.Payload"
         )
 
         # Greengrassへのデプロイ終了を待つ
-        wait_component_deploy = aws_sf.Wait(
-            self, "WaitDeploymentFinish", time=aws_sf.WaitTime.duration(core.Duration.seconds(30))
+        wait_component_deploy = aws_sf.Wait(self, 
+            "WaitDeploymentFinish",
+            time=aws_sf.WaitTime.duration(core.Duration.seconds(30))
         )
 
         # Greengrassへデプロイ結果を確認
-        task_check_deployment_status = aws_sf_tasks.LambdaInvoke(
-            self, "CheckDeploymentStatus", lambda_function=self._lambda_check_deploy_status, output_path="$.Payload"
+        task_check_deployment_status = aws_sf_tasks.LambdaInvoke(self,
+            "CheckDeploymentStatus",
+            lambda_function=self._lambda_check_deploy_status,
+            output_path="$.Payload"
         )
 
         # デプロイ失敗
-        pipeline_failed = aws_sf.Fail(
-            self, "PipelineFailed", error="DeployPipelineFailed", cause="Something went wrong"
+        pipeline_failed = aws_sf.Fail(self, "PipelineFailed",
+            error="DeployPipelineFailed",
+            cause="Something went wrong"
         )
         # 正常終了
         pipeline_success = aws_sf.Succeed(self, "PipelineSuccessed")
@@ -677,47 +744,44 @@ class Deploy(core.Construct):
         choice_deployment_result = aws_sf.Choice(self, "JudgeDeploymentStatus")
 
         # 正常終了を通知
-        publish_success_message = aws_sf_tasks.SnsPublish(
-            self,
+        publish_success_message = aws_sf_tasks.SnsPublish(self,
             "Publish Success message",
             topic=aws_sns.Topic(self, "SendDeploySuccess"),
-            message=aws_sf.TaskInput.from_json_path_at("$.message"),
+            message=aws_sf.TaskInput.from_json_path_at("$.message")
         ).next(pipeline_success)
 
         # デプロイ失敗を通知
-        publish_failed_message = aws_sf_tasks.SnsPublish(
-            self,
+        publish_failed_message = aws_sf_tasks.SnsPublish(self,
             "Publish Failed message",
             topic=aws_sns.Topic(self, "SendPipelineFailed"),
-            message=aws_sf.TaskInput.from_json_path_at("$.message"),
+            message=aws_sf.TaskInput.from_json_path_at("$.message")
         ).next(pipeline_failed)
 
-        definition = task_build_image.next(
-            choice_component_exists_result.when(
-                aws_sf.Condition.string_equals("$.status", "component_exists"), task_deploy_component
-            ).otherwise(
-                wait_image_build.next(task_check_build_image_status).next(
-                    choice_image_build_result.when(
-                        aws_sf.Condition.string_equals("$.status", "image_exists"),
-                        task_create_greengrass_component.next(task_deploy_component)
-                        .next(wait_component_deploy)
-                        .next(task_check_deployment_status)
-                        .next(
-                            choice_deployment_result.when(
-                                aws_sf.Condition.string_equals("$.status", "RUNNING"), wait_component_deploy
-                            )
-                            .when(aws_sf.Condition.string_equals("$.status", "COMPLETED"), publish_success_message)
-                            .otherwise(publish_failed_message)
-                            .afterwards()
-                        ),
-                    )
-                    .when(aws_sf.Condition.string_equals("$.status", "image_faild"), publish_failed_message)
-                    .otherwise(wait_image_build)
-                    .afterwards()
+        definition = \
+            task_build_image.next(
+                choice_component_exists_result
+                    .when(
+                        aws_sf.Condition.string_equals("$.status", "component_exists"), task_deploy_component)
+                    .otherwise(
+                        wait_image_build.next(
+                        task_check_build_image_status).next(
+                            choice_image_build_result.when(
+                                aws_sf.Condition.string_equals("$.status", "image_exists"), task_create_greengrass_component
+                                .next(task_deploy_component)
+                                .next(wait_component_deploy)
+                                .next(task_check_deployment_status)
+                                .next(
+                                    choice_deployment_result
+                                        .when(aws_sf.Condition.string_equals("$.status", "RUNNING"), wait_component_deploy)
+                                        .when(aws_sf.Condition.string_equals("$.status", "COMPLETED"), publish_success_message)
+                                        .otherwise(publish_failed_message).afterwards()))
+                            .when(
+                                aws_sf.Condition.string_equals("$.status", "image_faild"), publish_failed_message)
+                            .otherwise(
+                                wait_image_build).afterwards())
                 )
             )
-        )
-        # .next(aws_sf.Succeed(self, "GreengrassComponentDeployFinished"))
+            #.next(aws_sf.Succeed(self, "GreengrassComponentDeployFinished"))
 
         state_machine = aws_sf.StateMachine(
             self,
@@ -725,12 +789,12 @@ class Deploy(core.Construct):
             state_machine_name=name,
             definition=definition,
             state_machine_type=aws_sf.StateMachineType.STANDARD,
-            role=sf_role,
+            role=sf_role
         )
 
     def create_deploy_pipeline(self) -> core.Resource:
         """
-        AWS IoT Greengrass v2 用の推論コンポーネントを作成してデプロイするパイプラインを作成
+        AWS IoT Greengrass v2 用のシウ論コンポーネントを作成してデプロイするパイプラインを作成
         """
 
         self._table = self.create_deploy_status_table()

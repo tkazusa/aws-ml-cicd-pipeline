@@ -6,6 +6,6 @@ COPY . /app
 RUN apt update && \
 apt install --no-install-recommends -y build-essential gcc curl ca-certificates python3 && \
 apt clean && rm -rf /var/lib/apt/lists/*
-RUN pip uninstall torch torchvision -y && pip install --no-cache-dir -U -r requirements.txt
+RUN pip uninstall torch torchvision -y && pip install --no-cache-dir -U torch==1.9.1 torchvision==0.10.1 pycocotools==2.0.2 
 
-CMD ["python","./src/main.py"]
+CMD ["python","./main.py"]

@@ -1,13 +1,12 @@
 import argparse
 import os
 import shutil
-from pathlib import Path
-
 import numpy as np
 from PIL import Image, ImageEnhance
+from pathlib import Path
 
 
-class PennFudanDataset:
+class PennFudanDataset():
     def __init__(self, root):
         self.root = root
         self.imgs = list(sorted(os.listdir(os.path.join(root, "PNGImages"))))
@@ -43,11 +42,11 @@ def change_image(opr_name, ds, output_dir, factor=None):
         aug_img_stem = img_stem + "_" + opr_name + "_" + str(factor)
         aug_img_name = aug_img_stem + img_suffix
         aug_img_path = Path(output_dir, "PNGImages", aug_img_name)
-
+        
         aug_mask_stem = mask_stem + "_" + opr_name + "_" + str(factor)
         aug_mask_name = aug_mask_stem + img_suffix
         aug_mask_path = Path(output_dir, "PedMasks", aug_mask_name)
-
+        
         #! copy用分岐
         if opr_name == "cp":
             shutil.copy(img_path, aug_img_path)
@@ -82,13 +81,15 @@ def main(args):
     # copy original images
     change_image("cp", dataset, args.output_dir)
 
-    print("Finished running processing job")
+    print('Finished running processing job')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--input-dir", type=str, default="", metavar="N", help="input file path")
-    parser.add_argument("--output-dir", type=str, default="", metavar="N", help="output file path")
+    parser.add_argument('--input-dir', type=str, default='', metavar='N',
+                        help='input file path')
+    parser.add_argument('--output-dir', type=str, default='', metavar='N',
+                        help='output file path')
 
     main(parser.parse_args())

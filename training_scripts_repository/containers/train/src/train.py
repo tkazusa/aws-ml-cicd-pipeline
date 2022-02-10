@@ -2,22 +2,23 @@
 
 import argparse
 import json
-import os
-
+import mlflow
+from mlflow.tracking import MlflowClient
 import numpy as np
+import os
+from PIL import Image
 import torch
 import torchvision
-from PIL import Image
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
-
 import transforms as T
+
+from engine import train_one_epoch, evaluate
 import utils
-from engine import evaluate, train_one_epoch
 
-print("torch", torch.__version__)
-print("torchvision", torchvision.__version__)
 
+print('torch', torch.__version__)
+print('torchvision', torchvision.__version__)
 
 class PennFudanDataset(torch.utils.data.Dataset):
     def __init__(self, root, transforms):
@@ -85,7 +86,7 @@ class PennFudanDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.imgs)
-
+    
 
 def get_model_instance_segmentation(num_classes):
     # load an instance segmentation model pre-trained on COCO
@@ -100,9 +101,12 @@ def get_model_instance_segmentation(num_classes):
     in_features_mask = model.roi_heads.mask_predictor.conv5_mask.in_channels
     hidden_layer = 256
     # and replace the mask predictor with a new one
-    model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, hidden_layer, num_classes)
+    model.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask,
+                                                       hidden_layer,
+                                                       num_classes)
 
     return model
+
 
 
 def get_transform(train):
@@ -115,7 +119,7 @@ def get_transform(train):
 
 def train(args):
     # train on the GPU or on the CPU, if a GPU is not available
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     # our dataset has two classes only - background and person
     num_classes = 2
@@ -130,12 +134,12 @@ def train(args):
 
     # define training and validation data loaders
     data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, collate_fn=utils.collate_fn
-    )
+        dataset, batch_size=args.batch_size, shuffle=True, num_workers=0,
+        collate_fn=utils.collate_fn)
 
     data_loader_test = torch.utils.data.DataLoader(
-        dataset_test, batch_size=args.test_batch_size, shuffle=False, num_workers=0, collate_fn=utils.collate_fn
-    )
+        dataset_test, batch_size=args.test_batch_size, shuffle=False, num_workers=0,
+        collate_fn=utils.collate_fn)
 
     # get the model using our helper function
     model = get_model_instance_segmentation(num_classes)
@@ -145,9 +149,12 @@ def train(args):
 
     # construct an optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=0.0005)
+    optimizer = torch.optim.SGD(params, lr=args.lr,
+                                momentum=args.momentum, weight_decay=0.0005)
     # and a learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.1)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                   step_size=3,
+                                                   gamma=0.1)
 
     # let's train it for 10 epochs
     num_epochs = args.epochs
@@ -161,42 +168,74 @@ def train(args):
         lr_scheduler.step()
         # evaluate on the test dataset
         coco_evaluator = evaluate(model, data_loader_test, device=device)
-
-        if max_map < coco_evaluator.coco_eval["bbox"].stats[0]:
-            max_map = coco_evaluator.coco_eval["bbox"].stats[0]
+        
+        if max_map < coco_evaluator.coco_eval['bbox'].stats[0]:
+            max_map = coco_evaluator.coco_eval['bbox'].stats[0]
             best_model = model
 
     save_model(best_model, args.model_dir)
     print("That's it!")
     return best_model, max_map
 
-
 def save_model(model, model_dir):
     print("Saving the model.")
-    path = os.path.join(model_dir, "model.pth")
+    path = os.path.join(model_dir, 'model.pth')
     # recommended way from http://pytorch.org/docs/master/notes/serialization.html
     torch.save(model.cpu().state_dict(), path)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Data and model checkpoints directories
-    parser.add_argument(
-        "--batch-size", type=int, default=8, metavar="N", help="input batch size for training (default: 8)"
-    )
-    parser.add_argument(
-        "--test-batch-size", type=int, default=4, metavar="N", help="input batch size for testing (default: 4)"
-    )
-    parser.add_argument("--epochs", type=int, default=10, metavar="N", help="number of epochs to train (default: 10)")
-    parser.add_argument("--lr", type=float, default=0.01, metavar="LR", help="learning rate (default: 0.01)")
-    parser.add_argument("--momentum", type=float, default=0.5, metavar="M", help="SGD momentum (default: 0.5)")
+    parser.add_argument('--batch-size', type=int, default=8, metavar='N',
+                        help='input batch size for training (default: 8)')
+    parser.add_argument('--test-batch-size', type=int, default=4, metavar='N',
+                        help='input batch size for testing (default: 4)')
+    parser.add_argument('--epochs', type=int, default=10, metavar='N',
+                        help='number of epochs to train (default: 10)')
+    parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+                        help='learning rate (default: 0.01)')
+    parser.add_argument('--momentum', type=float, default=0.5, metavar='M',
+                        help='SGD momentum (default: 0.5)')
+    parser.add_argument('--mlflow-server', type=str, default='', metavar='N',
+                    help='MLFlow seer')
+    parser.add_argument('--experiment-name', type=str, default='', metavar='N',
+                    help='MLFlow experiment name')
+
 
     # Container environment
-    parser.add_argument("--hosts", type=list, default=json.loads(os.environ["SM_HOSTS"]))
-    parser.add_argument("--current-host", type=str, default=os.environ["SM_CURRENT_HOST"])
-    parser.add_argument("--model-dir", type=str, default=os.environ["SM_MODEL_DIR"])
-    parser.add_argument("--data-dir", type=str, default=os.environ["SM_CHANNEL_TRAINING"])
-    parser.add_argument("--num-gpus", type=int, default=os.environ["SM_NUM_GPUS"])
+    parser.add_argument('--hosts', type=list, default=json.loads(os.environ['SM_HOSTS']))
+    parser.add_argument('--current-host', type=str, default=os.environ['SM_CURRENT_HOST'])
+    parser.add_argument('--model-dir', type=str, default=os.environ['SM_MODEL_DIR'])
+    parser.add_argument('--data-dir', type=str, default=os.environ['SM_CHANNEL_TRAINING'])
+    parser.add_argument('--num-gpus', type=int, default=os.environ['SM_NUM_GPUS'])
 
-    train(parser.parse_args())
+    args = parser.parse_args()
+
+    experiment_name = args.experiment_name
+    mlflow.set_tracking_uri(args.mlflow_server)
+    
+    mlflow.set_experiment(experiment_name)
+    
+    experiment_id = mlflow.get_experiment_by_name(experiment_name).experiment_id
+    tags = {"engineering": "ML Platform"}
+        
+    best_model, max_map = train(args)
+        
+    with mlflow.start_run(tags=tags) as run:
+        params = {
+            "batch-size": args.batch_size,
+            "test-batch-size": args.test_batch_size,
+            "epochs": args.epochs,
+            "lr": args.lr,
+            "momentum": args.momentum
+        }
+        mlflow.log_params(params)
+        mlflow.log_metric(key='max_map', value=max_map)
+        run_id = run.info.run_id
+        
+    metadata_dict = {'run_id': run_id}
+    metadata_path = os.path.join(args.model_dir, 'metadata.json')
+        
+    with open(metadata_path, "w") as f:
+        f.write(json.dumps(metadata_dict))

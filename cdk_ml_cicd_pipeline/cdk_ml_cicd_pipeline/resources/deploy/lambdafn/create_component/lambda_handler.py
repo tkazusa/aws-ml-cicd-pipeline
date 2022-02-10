@@ -1,13 +1,11 @@
+import boto3
+from datetime import datetime as dt
 import json
 import os
-from datetime import datetime as dt
-
-import boto3
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(os.getenv("TABLE_NAME"))
 component_app_repo = os.getenv("COMPONENT_APP_SOURCE_REPOSITORY")
-
 
 def get_recipe(params, aws_account_id):
     """コンポーネント用のレシピファイルを取得する
@@ -26,17 +24,21 @@ def get_recipe(params, aws_account_id):
     Returns:
         dict: コンポーネントのRecipeデータ
     """
-    client = boto3.client("codecommit")
-    response = client.get_file(repositoryName=component_app_repo.split("//")[1], filePath="recipe.yaml")
-    recipe_template = response["fileContent"].decode("utf-8")
-    image_name = "{}.dkr.ecr.{}.amazonaws.com/{}:{}".format(
-        aws_account_id, os.getenv("AWS_DEFAULT_REGION"), params["component_name"], params["version"]
+    client = boto3.client('codecommit')
+    response = client.get_file(
+        repositoryName=component_app_repo.split("//")[1],
+        filePath="recipe.yaml"
     )
+    recipe_template = response["fileContent"].decode('utf-8')
+    image_name = "{}.dkr.ecr.{}.amazonaws.com/{}:{}".format(
+        aws_account_id,
+        os.getenv("AWS_DEFAULT_REGION"),
+        params["component_name"],
+        params["version"])
     recipe = recipe_template.replace("__VERSION__", params["version"]).replace("__IMAGE__", image_name)
     print(recipe)
 
     return recipe
-
 
 def create_component(recipe):
     """コンポーネントを作成する
@@ -48,14 +50,13 @@ def create_component(recipe):
     Returns:
         str: コンポーネントのバージョンARN
     """
-    ggv2 = boto3.client("greengrassv2")
+    ggv2 = boto3.client('greengrassv2')
     response = ggv2.create_component_version(
-        inlineRecipe=recipe.encode("utf-8"),
+        inlineRecipe=recipe.encode('utf-8'),
     )
     print(response)
 
     return response["arn"]
-
 
 def handler(event, context):
     """コンポーネントを作成する
@@ -77,10 +78,16 @@ def handler(event, context):
     print(json.dumps(event))
     aws_account_id = context.invoked_function_arn.split(":")[4]
 
-    # 作成しようとしているコンポーネントがすでに存在するか確認
-    response = table.get_item(Key={"component_name": event["component_name"], "version": event["version"]})
-    print(response)
 
+    # 作成しようとしているコンポーネントがすでに存在するか確認
+    response = table.get_item(
+      Key={
+          "component_name": event["component_name"],
+          "version": event["version"]
+      }
+    )
+    print(response)
+    
     if "component_arn" not in response["Item"]:
         pass
     else:
@@ -98,14 +105,17 @@ def handler(event, context):
 
     # DynamoDBのステータスを更新
     response = table.update_item(
-        Key={"component_name": event["component_name"], "version": event["version"]},
+        Key={
+            "component_name": event["component_name"],
+            "version": event["version"]
+        },
         UpdateExpression="set pipeline_status = :s, update_time = :t, component_arn = :c",
         ExpressionAttributeValues={
             ":s": event["status"],
             ":c": event["component_arn"],
-            ":t": dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+            ":t": dt.now().strftime('%Y-%m-%d %H:%M:%S')
         },
-        ReturnValues="UPDATED_NEW",
+        ReturnValues="UPDATED_NEW"
     )
     print(event)
 

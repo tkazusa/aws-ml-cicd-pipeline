@@ -1,11 +1,13 @@
+import time
 import datetime
 import json
-import time
-
-import awsiot.greengrasscoreipc
-from awsiot.greengrasscoreipc.model import JsonMessage, PublishMessage, PublishToTopicRequest
-
 import inference
+import awsiot.greengrasscoreipc
+from awsiot.greengrasscoreipc.model import (
+    PublishToTopicRequest,
+    PublishMessage,
+    JsonMessage
+)
 
 # from edge_deploy.component_source.src.inference import Inference
 
@@ -13,7 +15,7 @@ import inference
 # ipc_client = awsiot.greengrasscoreipc.connect()
 
 inference()
-
+                    
 # topic = "mlops/inference/result"
 
 # while True:
@@ -33,7 +35,7 @@ inference()
 #     operation.activate(request)
 #     future = operation.get_response()
 #     future.result(TIMEOUT)
-
-
+    
+    
 #     print("publish")
 #     time.sleep(1)

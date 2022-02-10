@@ -1,0 +1,4 @@
+sagemaker==2.66.0
+stepfunctions==2.1.0
+PyYAML==5.4.1
+pymysql==1.0.2

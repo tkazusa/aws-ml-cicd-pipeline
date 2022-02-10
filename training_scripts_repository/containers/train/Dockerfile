@@ -1,3 +1,4 @@
+
 FROM 763104351884.dkr.ecr.us-east-1.amazonaws.com/pytorch-training:1.8.0-gpu-py36
  
  COPY requirements.txt ./

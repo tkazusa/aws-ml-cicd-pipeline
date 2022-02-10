@@ -4,6 +4,13 @@ env:
   variables:
     # SOURCE_VERSION: $(echo $CODEBUILD_RESOLVED_SOURCE_VERSION)
     SRC: pipeline.py
+  exported-variables:
+    - PREP_JOB_NAME
+    - TRAIN_JOB_NAME
+    - EVAL_JOB_NAME
+    - TRAINED_MODEL_S3
+    - EVAL_REPORT_S3
+    - MLFLOW_SERVER_URI
 
 phases:
   install:

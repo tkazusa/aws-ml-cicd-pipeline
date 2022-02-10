@@ -9,7 +9,9 @@ phases:
       - tar -zxf $FILE_NAME
       - git clone $COMPONENT_APP_SOURCE_REPOSITORY repo
       - cp ./repo/main.py ./
-      - sed -i -e "1i FROM $COMPONENT_BASE_IMAGE_REPOSITORY" Dockerfile
+      - cp ./repo/inference.py ./
+      - cp ./repo/Dockerfile ./
+      - sed -i -e "1i FROM $COMPONENT_BASE_IMAGE_REPOSITORY" ./Dockerfile
       - sed -i "2d" Dockerfile 
       - cat Dockerfile
       - aws ecr get-login-password | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com

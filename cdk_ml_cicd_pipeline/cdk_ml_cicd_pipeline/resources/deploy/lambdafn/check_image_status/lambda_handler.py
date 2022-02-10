@@ -1,13 +1,10 @@
+import boto3
+from datetime import datetime as dt
 import json
 import os
-from datetime import datetime as dt
-
-import boto3
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(os.getenv("TABLE_NAME"))
-
-
 def handler(event, context):
     """コンポーネントで利用するコンテナイメージを作成する
 
@@ -28,13 +25,14 @@ def handler(event, context):
     print(json.dumps(event))
 
     # CodeBuildのビルドステータスを取得
-    client = boto3.client("codebuild")
+    client = boto3.client('codebuild')
     response = client.batch_get_builds(
         ids=[
             event["build_id"],
         ]
     )
     print(response)
+
 
     if response["builds"][0]["buildStatus"] == "IN_PROGRESS":
         return event
@@ -46,10 +44,16 @@ def handler(event, context):
 
     # DynamoDBのステータスを更新
     response = table.update_item(
-        Key={"component_name": event["component_name"], "version": event["version"]},
+        Key={
+            "component_name": event["component_name"],
+            "version": event["version"]
+        },
         UpdateExpression="set pipeline_status = :s, update_time = :t",
-        ExpressionAttributeValues={":s": event["status"], ":t": dt.now().strftime("%Y-%m-%d %H:%M:%S")},
-        ReturnValues="UPDATED_NEW",
+        ExpressionAttributeValues={
+            ":s": event["status"],
+            ":t": dt.now().strftime('%Y-%m-%d %H:%M:%S')
+        },
+        ReturnValues="UPDATED_NEW"
     )
     print(event)
 
