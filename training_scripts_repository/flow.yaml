@@ -1,0 +1,21 @@
+config:
+  region: 'us-east-1'
+  job-name-prefix: 'mlops-demo'
+  image-name-prefix: 'mlops-demo'
+  sfn-role-arn: 'arn:aws:iam::222136011322:role/ohbuchim-MLOps-train-sfn-wf-exec-role'
+  sagemaker-role-arn: 'arn:aws:iam::222136011322:role/ohbuchim-MLOps-train-sagemaker-exec-role'
+  secretsmanager-arn: 'arn:aws:secretsmanager:us-east-1:222136011322:secret:trainohbuchimMLOpstraindata-o8wjyhP7zd5C-VfQf3Z'
+experiments:
+  mlflow-server-uri: 'http://test-mlflo-t9271u4u0pr2-b0fe8f9c802b7001.elb.us-east-1.amazonaws.com'
+  experiment-name: 'mlops-demo'
+preprocess:
+  input-data-path: 's3://sagemaker-us-east-1-222136011322/data/'
+  output-data-path: 's3://sagemaker-us-east-1-ohbuchim-mlops-train/data/PennFudanPed_Augmented'
+train:
+  output-path: 's3://sagemaker-us-east-1-ohbuchim-mlops-train/train'
+  hyperparameters:
+    batch-size: 4
+    epoch: 1
+evaluate:
+  data-path: 's3://sagemaker-us-east-1-ohbuchim-mlops-train/data'
+  result-path: 's3://sagemaker-us-east-1-ohbuchim-mlops-train/evaluate'

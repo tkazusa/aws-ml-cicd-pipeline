@@ -1,1 +1,1 @@
-# Machine Learning training pipeline with Continuous Integration
+# Automotive 向け ML CI/CD デモセット

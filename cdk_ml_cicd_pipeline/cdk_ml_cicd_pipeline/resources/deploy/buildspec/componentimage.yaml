@@ -1,0 +1,27 @@
+version: 0.2
+ 
+phases:
+  pre_build:
+    commands:
+      - pip install git-remote-codecommit
+      - echo Download model from $S3_URI
+      - aws s3 cp $S3_URI .
+      - tar -zxf $FILE_NAME
+      - git clone $COMPONENT_APP_SOURCE_REPOSITORY repo
+      - cp ./repo/main.py ./
+      - cp ./repo/inference.py ./
+      - cp ./repo/Dockerfile ./
+      - sed -i -e "1i FROM $COMPONENT_BASE_IMAGE_REPOSITORY" ./Dockerfile
+      - sed -i "2d" Dockerfile 
+      - cat Dockerfile
+      - aws ecr get-login-password | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+  build:
+    commands:
+      - echo Start Build `date`
+      - docker build -t $COMPONENT_IMAGE_REPOSITORY:$IMAGE_TAG .
+      - docker tag $COMPONENT_IMAGE_REPOSITORY:$IMAGE_TAG $ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$COMPONENT_IMAGE_REPOSITORY:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Pushing the Docker image...
+      - docker push $ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$COMPONENT_IMAGE_REPOSITORY:$IMAGE_TAG
+      - echo Build finished `date`
