@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 from aws_cdk import core as cdk
 
+from resources.deploy.deploy import Deploy
 from resources.train.train import Train
 from resources.visualization.mlflow.mlflow_tracking import MLflowTracking
 
@@ -12,6 +13,9 @@ class CdkMlCicdPipelineStack(cdk.Stack):
 
         # ----- Training Pipeline ------
         train = Train(scope=self, stack_name=stack_name, component_id="train")
-        
+
         # ----- MLflow Tracking Server on AWS Fargate ------
         mlflow_tracking = MLflowTracking(scope=self, stack_name=stack_name, component_id="mlflow")
+
+        # ----- Deploy Component ------
+        deploy = Deploy(scope=self, stack_name=stack_name, component_id="deploy")

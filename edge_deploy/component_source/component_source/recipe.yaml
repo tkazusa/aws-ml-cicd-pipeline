@@ -1,0 +1,26 @@
+---
+RecipeFormatVersion: '2020-01-25'
+ComponentName: com.example.ggmlcomponent
+ComponentVersion: '__VERSION__'
+ComponentPublisher: Amazon
+ComponentDependencies:
+  aws.greengrass.DockerApplicationManager:
+    VersionRequirement: ~2.0.0
+  aws.greengrass.TokenExchangeService:
+    VersionRequirement: ~2.0.0
+ComponentConfiguration:
+  DefaultConfiguration:
+    accessControl:
+      aws.greengrass.ipc.mqttproxy:
+        'com.example.ggmlcomponent:dockerimage:1':
+          operations:
+            - 'aws.greengrass#PublishToIoTCore'
+          resources:
+            - 'mlops/inference/result'
+Manifests:
+  - Platform:
+      os: all
+    Lifecycle:
+      Run: 'docker run --rm -v /greengrass/v2:/greengrass/v2 -e AWS_REGION=$AWS_REGION -e SVCUID=$SVCUID -e AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT=$AWS_GG_NUCLEUS_DOMAIN_SOCKET_FILEPATH_FOR_COMPONENT -e AWS_CONTAINER_AUTHORIZATION_TOKEN=$AWS_CONTAINER_AUTHORIZATION_TOKEN -e AWS_CONTAINER_CREDENTIALS_FULL_URI=$AWS_CONTAINER_CREDENTIALS_FULL_URI __IMAGE__'
+    Artifacts:
+      - URI: "docker:__IMAGE__"
