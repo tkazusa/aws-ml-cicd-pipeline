@@ -18,14 +18,14 @@
     "prefix": "dev",
     "region": "us-east-1",
     "train": {
-      "connection": "arn:aws:codestar-connections:us-east-1:222136011322:connection/100205f3-4132-4ec6-8e4f-c962cfb0d9e8",
+      "connection": "XXXXXXXX",
       "repo": "sagemaker-ml-ci-pipeline-tensorflow-byoc",
       "owner": "ohbuchim",
       "branch": "main",
       "vpc":{
         "cidr": "10.0.0.0/16"
       },
-      "slack_hook_url": "https://hooks.slack.com/services/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",
+      "slack_hook_url": "XXXXXXXXXXXXX",
       "stepfunctions_name": "sfn_train"
     }
   }
