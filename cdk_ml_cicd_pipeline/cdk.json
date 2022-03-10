@@ -17,7 +17,7 @@
       "vpc":{
         "cidr": "10.0.0.0/16"
       },
-      "slack_hook_url": "https://hooks.slack.com/services/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",
+      "slack_hook_url": "XXX",
       "stepfunctions_name": "sfn_train"
     }
   }
