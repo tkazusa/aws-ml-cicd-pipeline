@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CDKVER="2.15.0"
+CDKVER="2.12.0"
 PREFIX="xxxxxx"
 
 npm install --force -g aws-cdk@$CDKVER
