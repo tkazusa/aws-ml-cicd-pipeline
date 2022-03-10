@@ -1,31 +1,27 @@
 import pathlib
 
-from aws_cdk import (
-    aws_lambda,
-    core,
-    aws_codebuild as codebuild,
-    aws_iam as iam,
-    aws_codecommit as codecommit,
-    aws_codepipeline as codepipeline,
-    aws_codepipeline_actions as codepipeline_actions,
-    aws_iam as iam,
-    aws_ec2 as ec2,
-    aws_rds as rds,
-    aws_sns as sns,
-    aws_lambda_event_sources as lambda_event_sources,
-    aws_lambda_python as lambda_python,
-    aws_s3 as s3,
-    aws_stepfunctions as stepfunctions
-)
-import aws_cdk.core as cdk
+from aws_cdk import CfnOutput, Duration, RemovalPolicy, Resource, Stack
+from aws_cdk import aws_codebuild as codebuild
+from aws_cdk import aws_codepipeline as codepipeline
+from aws_cdk import aws_codepipeline_actions as codepipeline_actions
+from aws_cdk import aws_ec2 as ec2
+from aws_cdk import aws_iam as iam
+from aws_cdk import aws_lambda
+from aws_cdk import aws_lambda_event_sources as lambda_event_sources
+from aws_cdk import aws_lambda_python_alpha as lambda_python
+from aws_cdk import aws_rds as rds
+from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_sns as sns
+from aws_cdk import aws_stepfunctions as stepfunctions
+from constructs import Construct
 
 
-class Train(core.Construct):
+class Train(Construct):
     @property
-    def handler(self) -> core.Resource:
+    def handler(self) -> Resource:
         return self._handler
 
-    def __init__(self, scope: core.Construct, stack_name: str, component_id: str, **kwargs):
+    def __init__(self, scope: Construct, stack_name: str, component_id: str, **kwargs):
         super().__init__(scope=scope, id=component_id, **kwargs)
 
         self.context = self.node.try_get_context('train')
@@ -84,7 +80,7 @@ class Train(core.Construct):
         policy = iam.Policy(self, "PassRolePolicy")
         policy.document.add_statements(iam.PolicyStatement(
             actions=["iam:PassRole"],
-            resources=[f"arn:aws:iam::{cdk.Stack.of(self).account}:role/*"]
+            resources=[f"arn:aws:iam::{Stack.of(self).account}:role/*"]
         ))
         role.attach_inline_policy(policy)
 
@@ -115,7 +111,7 @@ class Train(core.Construct):
 
 
     def _create_stepfunctions_step(self):
-        state_machine_arn = f'arn:aws:states:{self.region}:{cdk.Stack.of(self).account}:stateMachine:{self.sfn_name}'
+        state_machine_arn = f'arn:aws:states:{self.region}:{Stack.of(self).account}:stateMachine:{self.sfn_name}'
         stage = self.pipeline.add_stage(stage_name="StepFunctions")
         params={
             'TrainingJobName': '#{trainStep.TRAIN_JOB_NAME}',
@@ -132,7 +128,7 @@ class Train(core.Construct):
         stage.add_action(action)
 
 
-    def _create_set_experiment_info_env_step(self) -> core.Resource:
+    def _create_set_experiment_info_env_step(self) -> Resource:
         stage = self.pipeline.add_stage(stage_name="SetExperimentInfoEnvs")
         action = codepipeline_actions.LambdaInvokeAction(
             action_name=f"{self.name_prefix}-set-experiment-info-env-action",
@@ -171,7 +167,7 @@ class Train(core.Construct):
         stage.add_action(action)
         
 
-    def _create_post_process_step(self) -> core.Resource:
+    def _create_post_process_step(self) -> Resource:
         stage = self.pipeline.add_stage(stage_name="PostProcess")
 
         action = codepipeline_actions.LambdaInvokeAction(
@@ -188,7 +184,7 @@ class Train(core.Construct):
         stage.add_action(action)
 
 
-    def _create_pipeline(self) -> core.Resource:
+    def _create_pipeline(self) -> Resource:
         """
         Create CodePipeline for training.
         """
@@ -203,7 +199,7 @@ class Train(core.Construct):
         self._create_post_process_step()
 
 
-    def _create_slack_notify_sns_topic(self) -> core.Reference:
+    def _create_slack_notify_sns_topic(self) -> Resource:
         """
         Create SNS topic for slack notification.
         """
@@ -212,7 +208,7 @@ class Train(core.Construct):
         return topic
 
 
-    def _create_lambda_for_set_experiment_info_env(self) -> core.Resource:
+    def _create_lambda_for_set_experiment_info_env(self) -> Resource:
         """
         Ref: https://github.com/aws-samples/aws-cdk-examples/tree/master/python/lambda-cron
         """
@@ -225,7 +221,7 @@ class Train(core.Construct):
             entry=entry,
             index="lambda_handler.py",
             handler="lambda_handler",
-            timeout=core.Duration.seconds(300),
+            timeout=Duration.seconds(300),
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             role=self.lambda_experiment_info_role
         )
@@ -233,7 +229,7 @@ class Train(core.Construct):
         return lambdaFn
 
 
-    def _create_lambda_for_manual_approval(self) -> core.Resource:
+    def _create_lambda_for_manual_approval(self) -> Resource:
         """
         Ref: https://github.com/aws-samples/aws-cdk-examples/tree/master/python/lambda-cron
         """
@@ -248,7 +244,7 @@ class Train(core.Construct):
             entry=entry,
             index="lambda_handler.py",
             handler="lambda_handler",
-            timeout=core.Duration.seconds(300),
+            timeout=Duration.seconds(300),
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             environment={
                 "slack_hook_url": slack_hook_url
@@ -261,7 +257,7 @@ class Train(core.Construct):
         return lambdaFn
 
     
-    def _create_lambda_for_post_process(self) -> core.Resource:
+    def _create_lambda_for_post_process(self) -> Resource:
         """
         Ref: https://github.com/aws-samples/aws-cdk-examples/tree/master/python/lambda-cron
         """
@@ -275,7 +271,7 @@ class Train(core.Construct):
             entry=entry,
             index="lambda_handler.py",
             handler="lambda_handler",
-            timeout=core.Duration.seconds(300),
+            timeout=Duration.seconds(300),
             runtime=aws_lambda.Runtime.PYTHON_3_8,
             environment={
                 "slack_hook_url": slack_hook_url
@@ -291,7 +287,7 @@ class Train(core.Construct):
         """
         
         bucket_name=f"sagemaker-{self.region}-{self.name_prefix}"
-        self.s3_bucket = s3.Bucket(self, "Bucket", bucket_name=bucket_name.lower())
+        self.s3_bucket = s3.Bucket(self, "Bucket", removal_policy=RemovalPolicy.DESTROY,bucket_name=bucket_name.lower())
 
 
     def _create_roles_for_train_step(self):
@@ -443,7 +439,7 @@ class Train(core.Construct):
         private_subnet_config = ec2.SubnetConfiguration(
             cidr_mask=24,
             name=f"{self.name_prefix}-subnet-private",
-            subnet_type=ec2.SubnetType.PRIVATE
+            subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT
         )
         self.vpc = ec2.Vpc(self, "VPC",
             cidr=self.context['vpc']['cidr'],
@@ -465,6 +461,7 @@ class Train(core.Construct):
             subnets=self.vpc.private_subnets,
         )
 
+
     
     def _create_rds(self):
         """
@@ -474,11 +471,11 @@ class Train(core.Construct):
             description="for RDS",
             vpc=self.vpc,
 
-            removal_policy=cdk.RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY,
             subnet_group_name=f"{self.name_prefix}-sg-rds",
             vpc_subnets=self.subnet_selection
         )
-
+        
         self.rds = rds.DatabaseInstance(self, f"{self.name_prefix}-database",
             engine=rds.DatabaseInstanceEngine.mysql(
                 version=rds.MysqlEngineVersion.VER_8_0_16
@@ -489,7 +486,7 @@ class Train(core.Construct):
                 ec2.InstanceClass["MEMORY4"],
                 ec2.InstanceSize["LARGE"] 
             ),
-            removal_policy=core.RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY,
             deletion_protection=False,
             security_groups=[self.security_group],
             subnet_group=subnet_group
@@ -521,7 +518,7 @@ class Train(core.Construct):
             code=aws_lambda.AssetCode(path=lambda_function_path),
             handler="lambda_handler.lambda_handler",
             layers=[layer],
-            timeout=core.Duration.seconds(300),
+            timeout=Duration.seconds(300),
             runtime=aws_lambda.Runtime.PYTHON_3_7,
             role=role,
             description="write some description for this lambda",
@@ -535,8 +532,8 @@ class Train(core.Construct):
 
 
     def _cfnoutput(self):
-        cdk.CfnOutput(self, f"s3Bucket", value=self.s3_bucket.bucket_name)
-        cdk.CfnOutput(self, f"StepFunctionsWorkflowExecutionRole", value=self.sfn_wf_exec_role.role_arn)
-        cdk.CfnOutput(self, f"AmazonSageMakerExecutionRole", value=self.sagemaker_exec_role.role_arn)
-        cdk.CfnOutput(self, f"SecretsManagerArn", value=self.rds.secret.secret_arn)
-        cdk.CfnOutput(self, f"StepFunctionsName", value=self.sfn_name)
+        CfnOutput(self, f"s3Bucket", value=self.s3_bucket.bucket_name)
+        CfnOutput(self, f"StepFunctionsWorkflowExecutionRole", value=self.sfn_wf_exec_role.role_arn)
+        CfnOutput(self, f"AmazonSageMakerExecutionRole", value=self.sagemaker_exec_role.role_arn)
+        CfnOutput(self, f"SecretsManagerArn", value=self.rds.secret.secret_arn)
+        CfnOutput(self, f"StepFunctionsName", value=self.sfn_name)

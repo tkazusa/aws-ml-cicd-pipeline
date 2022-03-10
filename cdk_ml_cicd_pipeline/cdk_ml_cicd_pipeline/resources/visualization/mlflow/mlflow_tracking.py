@@ -1,6 +1,4 @@
-# Copyright Taketoshi Kazusa. All Rights Reserved.
-# SPDX-License-Identifier: MIT-0
-
+from aws_cdk import CfnOutput, Duration, RemovalPolicy
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_ecs as ecs
 from aws_cdk import aws_ecs_patterns as ecs_patterns
@@ -8,11 +6,12 @@ from aws_cdk import aws_iam as iam
 from aws_cdk import aws_rds as rds
 from aws_cdk import aws_s3 as s3
 from aws_cdk import aws_secretsmanager as sm
-from aws_cdk import core
+from constructs import Construct
 
 
-class MLflowTracking(core.Construct):
-    def __init__(self, scope: core.Construct, stack_name: str, component_id: str, **kwargs) -> None:
+class MLflowTracking(Construct):
+
+    def __init__(self, scope: Construct, stack_name: str, component_id: str, **kwargs) -> None:
         super().__init__(scope=scope, id=component_id, **kwargs)
 
         self.stack_name = stack_name
@@ -64,8 +63,8 @@ class MLflowTracking(core.Construct):
         Create a VPC network
         """
         public_subnet = ec2.SubnetConfiguration(name="Public", subnet_type=ec2.SubnetType.PUBLIC, cidr_mask=28)
-        private_subnet = ec2.SubnetConfiguration(name="Private", subnet_type=ec2.SubnetType.PRIVATE, cidr_mask=28)
-        isolated_subnet = ec2.SubnetConfiguration(name="DB", subnet_type=ec2.SubnetType.ISOLATED, cidr_mask=28)
+        private_subnet = ec2.SubnetConfiguration(name="Private", subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT, cidr_mask=28)
+        isolated_subnet = ec2.SubnetConfiguration(name="DB", subnet_type=ec2.SubnetType.PRIVATE_ISOLATED, cidr_mask=28)
         vpc_id = f"{self.stack_name}-{self.component_id}-vpc"
 
         self.vpc = ec2.Vpc(
@@ -91,7 +90,7 @@ class MLflowTracking(core.Construct):
             bucket_name=self.bucket_name,
             public_read_access=False,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            removal_policy=core.RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
     def _create_backend_store(self):
@@ -117,9 +116,9 @@ class MLflowTracking(core.Construct):
             instance_type=ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE2, ec2.InstanceSize.SMALL),
             vpc=self.vpc,
             security_groups=[self.sg_rds],
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.ISOLATED),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
             # multi_az=True,
-            removal_policy=core.RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.DESTROY,
             deletion_protection=False,
         )
 
@@ -141,7 +140,6 @@ class MLflowTracking(core.Construct):
             id=container_id,
             image=ecs.ContainerImage.from_asset(
                 directory="cdk_ml_cicd_pipeline/resources/visualization/mlflow/container",
-                repository_name=self.container_repo_name,
             ),
             environment={
                 "BUCKET": f"s3://{self.artifact_bucket.bucket_name}",
@@ -151,6 +149,7 @@ class MLflowTracking(core.Construct):
                 "USERNAME": self.username,
             },
             secrets={"PASSWORD": ecs.Secret.from_secrets_manager(self.db_password_secret)},
+            logging=ecs.LogDriver.aws_logs(stream_prefix='mlflow')
         )
         port_mapping = ecs.PortMapping(container_port=5000, host_port=5000, protocol=ecs.Protocol.TCP)
         container.add_port_mappings(port_mapping)
@@ -177,10 +176,10 @@ class MLflowTracking(core.Construct):
         scaling.scale_on_cpu_utilization(
             id=autoscaling_policy_id,
             target_utilization_percent=70,
-            scale_in_cooldown=core.Duration.seconds(60),
-            scale_out_cooldown=core.Duration.seconds(60),
+            scale_in_cooldown=Duration.seconds(60),
+            scale_out_cooldown=Duration.seconds(60),
         )
 
     def _create_outputs(self):
         output_id = f"{self.stack_name}-{self.component_id}-" + "LoadBalancerDNS"
-        core.CfnOutput(scope=self, id=output_id, value=self.fargate_service.load_balancer.load_balancer_dns_name)
+        CfnOutput(scope=self, id=output_id, value=self.fargate_service.load_balancer.load_balancer_dns_name)
