@@ -1,24 +1,19 @@
-import pathlib
-import yaml
 import os
+import pathlib
 
-from aws_cdk import (
-    aws_lambda,
-    core,
-    aws_iam,
-    aws_codecommit,
-    aws_codebuild,
-    aws_ecr,
-    aws_stepfunctions_tasks as aws_sf_tasks,
-    aws_stepfunctions as aws_sf,
-    aws_sns
-    )
+import yaml
+from aws_cdk import (Aws, CfnOutput, Duration, RemovalPolicy, Resource,
+                     aws_codebuild, aws_codecommit, aws_ecr, aws_iam,
+                     aws_lambda, aws_sns)
+from aws_cdk import aws_stepfunctions as aws_sf
+from aws_cdk import aws_stepfunctions_tasks as aws_sf_tasks
 from aws_cdk.aws_dynamodb import Attribute, AttributeType, Table
-from aws_cdk.core import Aws, RemovalPolicy, Duration
+from constructs import Construct
 
-class Deploy(core.Construct):
 
-    def __init__(self, scope: core.Construct, stack_name: str, component_id: str, **kwargs):
+class Deploy(Construct):
+
+    def __init__(self, scope: Construct, stack_name: str, component_id: str, **kwargs):
         super().__init__(scope=scope, id=component_id, **kwargs)
 
         self.stack_name = stack_name
@@ -28,12 +23,12 @@ class Deploy(core.Construct):
 
         self.create_deploy_pipeline()
 
-        core.CfnOutput(self, 
+        CfnOutput(self, 
             id="ComponentCodeRepositoryURI",
             export_name="ComponentCodeRepositoryURI",
             value=self._component_source_repository.repository_clone_url_grc)
 
-        core.CfnOutput(self, 
+        CfnOutput(self, 
             id="ComponentBaseImageRepositoryURI",
             export_name="ComponentBaseImageRepositoryURI",
             value=self._component_base_ecr.repository_uri)
@@ -47,7 +42,7 @@ class Deploy(core.Construct):
     def get_lambda_path(self, name: str):
         return str(pathlib.Path(__file__).resolve().parent) + "/lambdafn/" + name + "/"
 
-    def create_deploy_status_table(self) -> core.Resource:
+    def create_deploy_status_table(self) -> Resource:
         """コンポーネントの作成状況を保持するテーブル
 
         Table Schema
@@ -75,7 +70,7 @@ class Deploy(core.Construct):
             * job_id
 
         Returns:
-            core.Resource: DynamoDB Table
+            Resource: DynamoDB Table
         """
         table_name = f"{self.stack_name}_{self.component_id}_" + "deploy_status"
         table = Table(
@@ -89,11 +84,11 @@ class Deploy(core.Construct):
         
         return table
 
-    def create_component_source_repository(self) -> core.Resource:
+    def create_component_source_repository(self) -> Resource:
         """Greengrassのコンポーネント内で利用するソースコードを管理するリポジトリ
 
         Returns:
-            core.Resource: CodeCommit
+            Resource: CodeCommit
         """
         name = f"{self.stack_name}_{self.component_id}_component-source".lower()
         repo = aws_codecommit.Repository(
@@ -103,11 +98,11 @@ class Deploy(core.Construct):
         )
         return repo
 
-    def create_ecr_component_base_repository(self) -> core.Resource:
+    def create_ecr_component_base_repository(self) -> Resource:
         """コンポーネントを毎回0からビルドすると時間がかかるので、ベースになるイメージを作成
 
         Returns:
-            core.Resource: ECR
+            Resource: ECR
         """
         ecr = aws_ecr.Repository(
             self,
@@ -117,11 +112,11 @@ class Deploy(core.Construct):
         )
         return ecr
 
-    def create_ecr_component_repository(self) -> core.Resource:
+    def create_ecr_component_repository(self) -> Resource:
         """Greengrassのコンポーネント用にビルドしたdockerイメージを保存するレジストリ
 
         Returns:
-            core.Resource: ECR
+            Resource: ECR
         """
         ecr = aws_ecr.Repository(
             self,
@@ -131,11 +126,11 @@ class Deploy(core.Construct):
         )
         return ecr
 
-    def create_docker_image_buildproject(self) -> core.Resource:
+    def create_docker_image_buildproject(self) -> Resource:
         """Greengrassのコンポーネント用に推論アプリのdockerイメージをビルドするcodebuild
 
         Returns:
-            core.Resource: codebuild
+            Resource: codebuild
         """
 
         codebuild_name = f"{self.stack_name}_{self.component_id}_build_component"
@@ -239,11 +234,11 @@ class Deploy(core.Construct):
 
         return code_build
 
-    def create_lambda_build_image(self) -> core.Resource:
+    def create_lambda_build_image(self) -> Resource:
         """Greengrassのコンポーネント用に推論アプリのdockerイメージをビルドするcodebuildを実行するLambda
 
         Returns:
-            core.Resource: lambda
+            Resource: lambda
         """
 
         lambdaFn_name = self.get_lambda_name("build_image")
@@ -284,7 +279,7 @@ class Deploy(core.Construct):
             function_name=lambdaFn_name,
             code=aws_lambda.AssetCode(path=lambdaFn_path),
             handler="lambda_handler.handler",
-            timeout=core.Duration.seconds(10),
+            timeout=Duration.seconds(10),
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="コンポーネント用のイメージを作成",
             role=lambda_role,
@@ -300,11 +295,11 @@ class Deploy(core.Construct):
 
         return lambdaFn 
     
-    def create_lambda_check_image_status(self) -> core.Resource:
+    def create_lambda_check_image_status(self) -> Resource:
         """dockerイメージのビルド状況を確認するLambda
 
         Returns:
-            core.Resource: lambda
+            Resource: lambda
         """
 
         lambdaFn_name = self.get_lambda_name("check_image_status")
@@ -348,7 +343,7 @@ class Deploy(core.Construct):
             function_name=lambdaFn_name,
             code=aws_lambda.AssetCode(path=lambdaFn_path),
             handler="lambda_handler.handler",
-            timeout=core.Duration.seconds(10),
+            timeout=Duration.seconds(10),
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="コンポーネント用のイメージのビルド結果を確認",
             role=lambda_role,
@@ -359,11 +354,11 @@ class Deploy(core.Construct):
 
         return lambdaFn
     
-    def create_lambda_create_component(self) -> core.Resource:
+    def create_lambda_create_component(self) -> Resource:
         """AWS IoT Greengrass用のコンポーネントを作成するLambda
 
         Returns:
-            core.Resource: lambda
+            Resource: lambda
         """
 
         lambdaFn_name = self.get_lambda_name("create_component")
@@ -411,7 +406,7 @@ class Deploy(core.Construct):
             function_name=lambdaFn_name,
             code=aws_lambda.AssetCode(path=lambdaFn_path),
             handler="lambda_handler.handler",
-            timeout=core.Duration.seconds(10),
+            timeout=Duration.seconds(10),
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="AWS IoT Greengrass用の推論コンポーネントを作成",
             role=lambda_role,
@@ -423,11 +418,11 @@ class Deploy(core.Construct):
 
         return lambdaFn
     
-    def create_lambda_deploy_component(self) -> core.Resource:
+    def create_lambda_deploy_component(self) -> Resource:
         """AWS IoT Greengrass用のコンポーネントをデプロイするLambda
 
         Returns:
-            core.Resource: lambda
+            Resource: lambda
         """
 
         lambdaFn_name = self.get_lambda_name("deploy_component")
@@ -504,7 +499,7 @@ class Deploy(core.Construct):
             function_name=lambdaFn_name,
             code=aws_lambda.AssetCode(path=lambdaFn_path),
             handler="lambda_handler.handler",
-            timeout=core.Duration.seconds(300),
+            timeout=Duration.seconds(300),
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="AWS IoT Greengrassへのデプロイ結果を取得",
             role=lambda_role,
@@ -515,11 +510,11 @@ class Deploy(core.Construct):
 
         return lambdaFn
     
-    def create_lambda_check_deploy_status(self) -> core.Resource:
+    def create_lambda_check_deploy_status(self) -> Resource:
         """AWS IoT Greengrass用のコンポーネントをデプロイするLambda
 
         Returns:
-            core.Resource: lambda
+            Resource: lambda
         """
 
         lambdaFn_name = self.get_lambda_name("component_deploy_status")
@@ -587,7 +582,7 @@ class Deploy(core.Construct):
             function_name=lambdaFn_name,
             code=aws_lambda.AssetCode(path=lambdaFn_path),
             handler="lambda_handler.handler",
-            timeout=core.Duration.seconds(300),
+            timeout=Duration.seconds(300),
             runtime=aws_lambda.Runtime.PYTHON_3_9,
             description="AWS IoT Greengrassへのデプロイ結果を取得",
             role=lambda_role,
@@ -598,11 +593,11 @@ class Deploy(core.Construct):
 
         return lambdaFn
 
-    def create_stepfunction(self) -> core.Resource:
+    def create_stepfunction(self) -> Resource:
         """コンポーネントをビルドしてデプロイするステートマシンの作成
 
         Returns:
-            core.Resource: step function
+            Resource: step function
         """
 
         name = f"{self.stack_name}_{self.component_id}_edgedeploy_pipeline"
@@ -696,7 +691,7 @@ class Deploy(core.Construct):
         # dockerコンテナのビルドを待つ
         wait_image_build = aws_sf.Wait(self, 
             "WaitImageBuildFinish",
-            time=aws_sf.WaitTime.duration(core.Duration.seconds(30))
+            time=aws_sf.WaitTime.duration(Duration.seconds(30))
         )
 
         # Greengrassのコンポーネントを作成
@@ -716,7 +711,7 @@ class Deploy(core.Construct):
         # Greengrassへのデプロイ終了を待つ
         wait_component_deploy = aws_sf.Wait(self, 
             "WaitDeploymentFinish",
-            time=aws_sf.WaitTime.duration(core.Duration.seconds(30))
+            time=aws_sf.WaitTime.duration(Duration.seconds(30))
         )
 
         # Greengrassへデプロイ結果を確認
@@ -792,9 +787,9 @@ class Deploy(core.Construct):
             role=sf_role
         )
 
-    def create_deploy_pipeline(self) -> core.Resource:
+    def create_deploy_pipeline(self) -> Resource:
         """
-        AWS IoT Greengrass v2 用のシウ論コンポーネントを作成してデプロイするパイプラインを作成
+        AWS IoT Greengrass v2 用の推論コンポーネントを作成してデプロイするパイプラインを作成
         """
 
         self._table = self.create_deploy_status_table()
